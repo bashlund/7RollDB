@@ -1,4 +1,4 @@
-#7RollDB - The Non Bloated Database
+#7RollDB - The Non Bloated Database Engine - in Bash
 A MongoDB replacement written in Bash.
 
 A novel database engine for courageous users.
@@ -7,7 +7,7 @@ A novel database engine for courageous users.
 * Free and open source
 * JSON document database engine
 * Strict Non Bloating Policy
-* Super lightweight - only ~5kb in size
+* Super lightweight - only ~7kb in size
 * Built in REST API
 * Written in Bash - the super popular shell language supported everywhere
 * Unlimited scalability -
@@ -24,19 +24,19 @@ but somewhere along the line of playing with the big boys n' girls, they complet
 
 7RollDB is filling that vacuum for a novel database engine and its courageous users.
 
-7RollDB adhere to our strict Non Bloating Policy of never getting bloated on the users expense.
+7RollDB adhere to our strict **Non Bloating Policy** of never getting bloated on the users expense.
 
 
 ##Comparing 7RollDB to MongoDB*
                 | 7RollDB   | MongoDB
     ----------- | --------- | -------------
     Non Bloating Policy     | Strict      | None
-    Sleak       | Yes      | No
-    Bash        | Yes      | No
-    REST API    | Native      | No (depends on 3rd party)
-    RAM friendly   | Yes | No (uses memory mapped files)
-    Performant  | Yes      | Yes
-    Scalable    | Yes      | Yes
+    Sleak       | Yes       | No
+    Bash        | Yes       | No
+    REST API    | Native    | No (depends on 3rd party)
+    RAM friendly| Yes       | No (uses memory mapped files)
+    Performant  | Yes       | Yes
+    Scalable    | Yes       | Yes
 
 \* I have never actually used MongoDB
 
@@ -73,7 +73,7 @@ $ curl -X GET "http://127.0.0.1:27017/MyDB1"
 ###Documents
 Create new or update a document within a collection:
 ```sh
-$ curl -X POST "http://127.0.0.1:27017/MyDB1/MyCollection1/OhSoSweetDocument" -d \
+$ curl -X POST "http://127.0.0.1:27017/MyDB1/MyCollection1/MyDoc1" -d \
         '{"name": "Alexander McRaminov", "occupation": "Plain Cool"}'
 {status: "OK"}
 ```
@@ -81,18 +81,18 @@ List all documents within specific collection:
 ```sh
 $ curl -X GET "http://127.0.0.1:27017/MyDB1/MyCollection1"
 [
-    "OhSoSweetDocument"
+    "MyDoc1"
 ]
 ```
 Get a specific document:
 ```sh
-$ curl -X GET "http://127.0.0.1:27017/MyDB1/MyCollection1/OhSoSweetDocument"
+$ curl -X GET "http://127.0.0.1:27017/MyDB1/MyCollection1/MyDoc1"
 {"name": "Alexander McRaminov", "occupation": "Plain Cool"}
 
 ```
 Delete a specific document:
 ```sh
-$ curl -X DELETE "http://127.0.0.1:27017/MyDB1/MyCollection1/OhSoSweetDocument"
+$ curl -X DELETE "http://127.0.0.1:27017/MyDB1/MyCollection1/MyDoc1"
 {status: "OK"}
 ```
 
@@ -104,21 +104,21 @@ Searching for documents in all collections within a database:
 ```sh
 $ curl -X GET "http://127.0.0.1:27017/MyDB1?Alexander"
 [
-    "MyCollection1/OhSoSweetDocument"
+    "MyCollection1/MyDoc1"
 ]
 ```
 Searching for documents within a specific collection:
 ```sh
 $ curl -X GET "http://127.0.0.1:27017/MyDB1/MyCollection1?McRaminov"
 [
-    "OhSoSweetDocument"
+    "MyDoc1"
 ]
 ```
 Searching within a specific document for a match:
 ```sh
-$ curl -X GET "http://127.0.0.1:27017/MyDB1/MyCollection1/OhSoSweetDocument?Cool"
+$ curl -X GET "http://127.0.0.1:27017/MyDB1/MyCollection1/MyDoc1?Cool"
 [
-    "OhSoSweetDocument"
+    "MyDoc1"
 ]
 ```
 
