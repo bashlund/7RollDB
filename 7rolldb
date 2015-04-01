@@ -1,0 +1,234 @@
+#!/bin/bash
+#
+# 7RollDB - The Non Bloated Database Engine
+# github.com/thomasbacklund/7RollDB
+# Author: Thomas Backlund
+# Released under the MIT license.
+# MIT licensed. See LICENSE file for details.
+
+readonly port=27017      # Same port as MongoDB
+readonly version="0.1"
+readonly versionName="Sloof Slirpa"
+readonly dataDir="data"
+
+jsonArray() {
+    a="$1"
+    data="[]"
+    if [ ! "$a" = "" ]; then
+        data=$(echo -n "$a" | sed s/$/\"/ | sed s/^/\"/ | tr '\n' ',\n' | sed "\$a]" | sed "1 s/^\(.*\)/[\n\1/")
+    fi
+    response "200" "OK" "$data"
+}
+
+extractHeader() {
+    method=$(echo -e $1 | head -1 | awk '{ print $1 };' 2>/dev/null)
+    path=$(echo -e $1 | head -1 | awk '{ print $2 };' | sed 's/\.\.\//\./g' 2>/dev/null)
+    query=$(echo -e $path | awk 'BEGIN {FS = "?" }; {print $2}')
+    path=$(echo -e $path | awk 'BEGIN {FS = "?" }; {print $1}')
+    db=$(echo -e $path | awk 'BEGIN {FS = "/" }; {print $2}')
+    collection=$(echo -e $path | awk 'BEGIN {FS = "/" }; {print $3}')
+    docid=$(echo -e $path | awk 'BEGIN {FS = "/" }; {print $4}')
+}
+
+listDatabases() {
+    # TODO need a security check on the path.
+    list=$(cd $dataDir 2&> /dev/null && find . -mindepth 1 -maxdepth 1 -type d | sed "s|^\./||")
+    jsonArray "$list"
+}
+
+listCollections() {
+    # TODO need a security check on the path.
+    path=$dataDir/$1
+    list=$(cd $path 2&> /dev/null && find . -mindepth 1 -maxdepth 1 -type d | sed "s|^\./||")
+    jsonArray "$list"
+}
+
+listDocuments() {
+    # TODO need a security check on the path.
+    path=$dataDir/$1/$2
+    list=$(cd $path 2&> /dev/null && find . -mindepth 1 -maxdepth 1 -type f -name '*.json' | sed "s|^\./||" | sed "s/\.json\$//")
+    jsonArray "$list"
+}
+
+getDocument() {
+    # TODO need a security check on the path.
+    path=$dataDir/$1/$2/$3.json
+    if [ -e $path ]; then
+        echo -ne "HTTP/1.1 200 OK\r\nContent-Length: $(wc -c <$path)\r\n\r\n"
+        cat $path
+    else
+        response "404" "Not Found"
+    fi
+}
+
+queryDocuments() {
+    # TODO need a security check on the path.
+    db=$1
+    collection=$2
+    docid=$([ $3 ] && echo "$3.json")
+    query=$4
+    path=$dataDir
+    if [ ! $db = "" ]; then
+        path=$path/$db
+        if [ ! $collection = "" ]; then
+            path=$path/$collection
+        fi
+    fi
+    list=$(cd $path; grep $query $docid -lsr --include="*.json" | sed "s/\.json\$//")
+    jsonArray "$list"
+}
+
+createDB() {
+    # TODO need a security check on the path.
+    path=$dataDir/$1
+    mkdir $path 2&> /dev/null
+    response "200" "OK" '{status: "OK"}'
+}
+
+createCollection() {
+    # TODO need a security check on the path.
+    path=$dataDir/$1/$2
+    mkdir $path 2&> /dev/null
+    response "200" "OK" '{status: "OK"}'
+}
+
+function createDocument {
+    # TODO need a security check on the path.
+    path=$dataDir/$1/$2/$3.json
+    dd bs=1 count="$length" conv=noerror iflag=nonblock >$path 2>/dev/null
+    response "200" "OK" '{status: "OK"}'
+}
+
+function deleteDocument {
+    # TODO need a security check on the path.
+    path=$dataDir/$1/$2/$3.json
+    if [ -e $path ]; then
+        rm $path
+        response "200" "OK" '{status: "OK"}'
+    else
+        response "404" "Not Found" '{status: "FAILED"}'
+    fi
+}
+
+getContentLength() {
+    length=
+    while true
+    do
+        if read line ; then
+            line=$(echo $line|tr -d '\r\n')
+            if [[ "$line" == '' ]]; then
+                break
+            fi
+            if [[ "$length" == "" ]]; then
+                length=$(echo -e $line | head -1 | sed -n 's/Content-Length: \(.*\)/\1/p')
+            fi
+        fi
+    done
+}
+
+response() {
+    code=${1:-"200"}
+    status=${2:-"OK"}
+    data=${3:-}
+    size=${#data}
+    echo -ne "HTTP/1.1 $code $status\r\nContent-Length: $size\r\n\r\n$data";
+}
+
+unknown() {
+    response "418" "I'm a Teapot" "Can't do that."
+}
+
+exec7Roll() {
+    if read line ; then
+        extractHeader "$line"
+        if [ "$method" = "GET" ]; then
+            if [ ! "$query" = "" ]; then
+                queryDocuments "$db" "$collection" "$docid" "$query"
+            elif [ "$db" = "" ]; then
+                listDatabases
+            elif [ "$collection" = "" ]; then
+                listCollections "$db"
+            elif [ "$docid" = "" ]; then
+                listDocuments "$db" "$collection"
+            else
+                getDocument "$db" "$collection" "$docid"
+            fi
+        elif [ "$method" = "POST" ]; then
+            getContentLength
+            if [ ! "$db" = "" ] && [ ! "$collection" = "" ] && [ ! "$docid" = "" ] ; then
+                createDocument "$db" "$collection" "$docid"
+            elif [ ! "$db" = "" ] && [ ! "$collection" = "" ] ; then
+                createCollection "$db" "$collection"
+            elif [ ! "$db" = "" ] ; then
+                createDB "$db"
+            else
+                unknown
+            fi
+        elif [ "$method" = "PUT" ]; then
+            getContentLength
+            if [ ! "$docid" = "" ]; then
+                updateDocument "$db" "$collection" "$docid"
+            else
+                unknown
+                exit 1
+            fi
+        elif [ "$method" = "DELETE" ]; then
+            if [ ! "$docid" = "" ]; then
+                deleteDocument "$db" "$collection" "$docid"
+            fi
+        else
+            unknown
+            exit 1
+        fi
+    fi
+}
+
+log() {
+    echo "[7RollDB] $1"
+}
+
+clearFrom7Rolls() {
+    log "Checking system for other 7Roll instances..."
+    somepid=`lsof -i:"$port" -t`
+    if [[ $somepid > 0 ]]; then
+        log "7Roll found, pid $somepid."
+        log "Killing this old 7Roll, or MongoDB, or whoever is claiming port $port."
+        kill -9 $somepid || { log "Aaargh...! We are not powerful enough to kill $somepid. Summon the Sudo Wizard to cast a kill -9 spell on $somepid !!!"; exit 1; }
+    fi
+    log "No 7Rolls found."
+}
+
+checkDeps() {
+    command -v socat 2&> /dev/null || { log "Please install socat to run 7RollDB"; exit 1; }
+    [ -d $dataDir ] || { log "Data directory not accessable, can not proceed. Make sure you run 7RollDB from its root directory and that the dataDir variable is set properly."; exit 1; }
+}
+
+start7Rolling() {
+    checkDeps
+    clearFrom7Rolls
+    log "Server running as pid $$."
+    log "Server listening on port $port."
+    socat tcp-l:"$port",fork,reuseaddr exec:"$0 exec"
+}
+
+show7RollHelp() {
+    read -d '' help << EOF
+    7RollDB version $version $versionName
+    $0              Start the 7RollDB server
+    $0 --help       Shows this help.
+    $0 --version    Show version information
+EOF
+    echo -e "$help"
+}
+
+if [ "$1" = "" ]; then
+    start7Rolling
+elif [ $1 = "exec" ]; then
+    exec7Roll
+elif [ $1 = "--help" ]; then
+    show7RollHelp
+elif [ $1 = "--version" ]; then
+    log "version $version $versionName "
+else
+    show7RollHelp
+fi
